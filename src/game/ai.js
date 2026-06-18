@@ -3,14 +3,16 @@ import { getMovableCells, manhattanDistance, isEnemyInRange } from './board';
 
 /**
  * AI decision-making for one unit.
- * Returns { action: 'move_attack' | 'attack' | 'move', toRow?, toCol?, targetId? }
+ * shocked: if true, unit has reduced movement this turn.
  */
-export function decideAiAction(board, unitId, units, playerUnitIds, enemyUnitIds) {
+export function decideAiAction(board, terrain, unitId, units, playerUnitIds, enemyUnitIds) {
   const unit = units[unitId];
   if (!unit || unit.hp <= 0) return { action: 'none' };
 
   const charData = getCharacter(unit.charId);
   if (!charData) return { action: 'none' };
+
+  const shocked = unit.shocked || false;
 
   // Get living player units
   const livingEnemies = playerUnitIds.filter((id) => units[id] && units[id].hp > 0);
@@ -32,17 +34,15 @@ export function decideAiAction(board, unitId, units, playerUnitIds, enemyUnitIds
 
   // Check if already in attack range
   if (isEnemyInRange(unit.row, unit.col, charData.range, closestEnemy.row, closestEnemy.col)) {
-    // Attack the lowest HP enemy in range
     const target = pickBestTarget(board, unit, charData, livingEnemies, units);
     return { action: 'attack', targetId: target };
   }
 
   // Need to move: find best cell to approach enemy
-  const movableCells = getMovableCells(board, unit.row, unit.col, charData);
+  const movableCells = getMovableCells(board, terrain, unit.row, unit.col, charData, shocked);
 
   if (movableCells.length === 0) return { action: 'none' };
 
-  // Find the cell that gets closest to the enemy
   let bestCell = movableCells[0];
   let bestDist = manhattanDistance(bestCell.row, bestCell.col, closestEnemy.row, closestEnemy.col);
 
@@ -54,7 +54,6 @@ export function decideAiAction(board, unitId, units, playerUnitIds, enemyUnitIds
     }
   }
 
-  // After moving, check if any enemy is in attack range
   const afterMoveEnemies = livingEnemies.filter((id) => {
     const enemy = units[id];
     return isEnemyInRange(bestCell.row, bestCell.col, charData.range, enemy.row, enemy.col);
@@ -73,7 +72,6 @@ function pickBestTarget(board, unit, charData, enemyIds, units) {
     const enemy = units[id];
     return isEnemyInRange(unit.row, unit.col, charData.range, enemy.row, enemy.col);
   });
-
   return pickLowestHp(inRange, units);
 }
 
@@ -82,7 +80,6 @@ function pickBestTargetAt(row, col, charData, enemyIds, units) {
     const enemy = units[id];
     return isEnemyInRange(row, col, charData.range, enemy.row, enemy.col);
   });
-
   return pickLowestHp(inRange, units);
 }
 

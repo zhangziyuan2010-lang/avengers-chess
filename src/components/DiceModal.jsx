@@ -46,6 +46,9 @@ export default function DiceModal({ state, onNextRound, onResolve }) {
     return '🔄';
   };
 
+  const attackerBonus = state.combatAttackerBonus || 0;
+  const defenderBonus = state.combatDefenderBonus || 0;
+
   return (
     <div className="dice-modal-overlay">
       <div className="dice-modal">
@@ -55,26 +58,44 @@ export default function DiceModal({ state, onNextRound, onResolve }) {
           <div className="dice-side" style={{ '--char-color': attackerChar.color }}>
             <div className="dice-emoji">{attackerChar.emoji}</div>
             <div className="dice-name">{attackerChar.name}</div>
-            <div className="dice-label">攻击方</div>
+            <div className="dice-label">
+              攻击方{attackerBonus > 0 ? ` +${attackerBonus}` : ''}
+            </div>
           </div>
           <div className="dice-vs">VS</div>
           <div className="dice-side" style={{ '--char-color': defenderChar.color }}>
             <div className="dice-emoji">{defenderChar.emoji}</div>
             <div className="dice-name">{defenderChar.name}</div>
-            <div className="dice-label">防守方</div>
+            <div className="dice-label">
+              防守方{defenderBonus > 0 ? ` +${defenderBonus}` : ''}
+            </div>
           </div>
         </div>
 
         <div className="dice-roll-area">
-          <div className={`dice-display ${animating ? 'rolling' : ''}`}>
-            <span className="dice-number">
-              {animating ? '?' : currentRound.attackerRoll}
-            </span>
+          <div className="dice-col">
+            <div className={`dice-display ${animating ? 'rolling' : ''}`}>
+              <span className="dice-number">
+                {animating ? '?' : currentRound.attackerRoll}
+              </span>
+            </div>
+            {!animating && attackerBonus > 0 && (
+              <span className="dice-bonus">
+                ({currentRound.attackerBase}+{attackerBonus})
+              </span>
+            )}
           </div>
-          <div className={`dice-display ${animating ? 'rolling' : ''}`}>
-            <span className="dice-number">
-              {animating ? '?' : currentRound.defenderRoll}
-            </span>
+          <div className="dice-col">
+            <div className={`dice-display ${animating ? 'rolling' : ''}`}>
+              <span className="dice-number">
+                {animating ? '?' : currentRound.defenderRoll}
+              </span>
+            </div>
+            {!animating && defenderBonus > 0 && (
+              <span className="dice-bonus">
+                ({currentRound.defenderBase}+{defenderBonus})
+              </span>
+            )}
           </div>
         </div>
 

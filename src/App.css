@@ -403,6 +403,12 @@ body {
   flex: 1;
 }
 
+.terrain-info {
+  font-size: 12px;
+  color: #aaa;
+  white-space: nowrap;
+}
+
 .game-main {
   display: flex;
   gap: 16px;
@@ -501,6 +507,29 @@ body {
   color: #666;
 }
 
+.unit-skill {
+  font-size: 10px;
+  color: var(--char-color);
+  font-weight: 600;
+  margin-top: 2px;
+  background: color-mix(in srgb, var(--char-color) 12%, transparent);
+  border-radius: 6px;
+  padding: 1px 6px;
+}
+
+.unit-debuff {
+  font-size: 10px;
+  color: #f59e0b;
+  font-weight: 700;
+  margin-top: 2px;
+  animation: pulse-debuff 0.8s ease-in-out infinite;
+}
+
+@keyframes pulse-debuff {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
 .acted-overlay {
   position: absolute;
   inset: 0;
@@ -511,6 +540,17 @@ body {
   font-size: 12px;
   font-weight: 700;
   color: #999;
+}
+
+.char-skill-tag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--char-color);
+  background: color-mix(in srgb, var(--char-color) 12%, transparent);
+  border-radius: 8px;
+  padding: 2px 8px;
+  margin-bottom: 4px;
 }
 
 /* ── Board ──────────────────────────────────────── */
@@ -566,6 +606,66 @@ body {
 
 .cell.movable:hover {
   background: #42a5f5 !important;
+}
+
+/* ── Terrain Cells ──────────────────────────────── */
+
+.cell.terrain-highland {
+  background: linear-gradient(135deg, #c9a96e, #a0845c) !important;
+}
+
+.cell.terrain-river {
+  background: linear-gradient(135deg, #5b9bd5, #3a7cc3) !important;
+}
+
+.cell.terrain-spring {
+  background: linear-gradient(135deg, #6fbf73, #4caf50) !important;
+}
+
+.cell:nth-child(odd).terrain-highland {
+  background: linear-gradient(135deg, #bfa060, #967c50) !important;
+}
+
+.cell:nth-child(odd).terrain-river {
+  background: linear-gradient(135deg, #5090ca, #3070b8) !important;
+}
+
+.cell:nth-child(odd).terrain-spring {
+  background: linear-gradient(135deg, #65b569, #43a047) !important;
+}
+
+/* Movable/attack overrides on terrain */
+.cell.terrain-highland.movable,
+.cell.terrain-river.movable,
+.cell.terrain-spring.movable {
+  background: #64b5f6 !important;
+  box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.5);
+}
+
+.cell.terrain-highland.attack-target,
+.cell.terrain-river.attack-target,
+.cell.terrain-spring.attack-target {
+  background: #ef5350 !important;
+}
+
+.terrain-icon {
+  position: absolute;
+  top: 2px;
+  right: 3px;
+  font-size: 14px;
+  pointer-events: none;
+  opacity: 0.7;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+.terrain-legend {
+  display: flex;
+  gap: 16px;
+  font-size: 11px;
+  color: #999;
+  margin-top: 4px;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 .cell.attack-target {
@@ -918,6 +1018,19 @@ body {
 .result-hit .result-text { color: #e65100; }
 .result-miss .result-text { color: #2e7d32; }
 .result-reroll .result-text { color: #f57f17; }
+
+.dice-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.dice-bonus {
+  font-size: 11px;
+  color: #f59e0b;
+  font-weight: 600;
+}
 
 .dice-hint {
   font-size: 13px;

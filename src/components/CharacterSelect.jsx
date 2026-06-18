@@ -45,7 +45,13 @@ export default function CharacterSelect({ onConfirm }) {
                 <span className="stat" title="血量">❤️ {char.hp}</span>
                 <span className="stat" title="攻击射程">🎯 {char.range}</span>
               </div>
-              <div className="char-desc">{char.desc}</div>
+              <div className="char-desc">
+                {char.skillName && (
+                  <span className="char-skill-tag">⭐ {char.skillName}</span>
+                )}
+                {char.skillName && <br />}
+                {char.desc}
+              </div>
               {isSelected && <div className="selected-badge">✓</div>}
             </div>
           );

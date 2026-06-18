@@ -8,6 +8,7 @@ import { getCharacter } from '../data/characters';
 export default function GameBoard({ state, actions }) {
   const {
     board,
+    terrain,
     units,
     playerUnitIds,
     aiUnitIds,
@@ -44,14 +45,10 @@ export default function GameBoard({ state, actions }) {
   const logRef = useRef(null);
   const stateRef = useRef(state);
 
-  useEffect(() => {
-    stateRef.current = state;
-  }, [state]);
+  useEffect(() => { stateRef.current = state; }, [state]);
 
   useEffect(() => {
-    if (logRef.current) {
-      logRef.current.scrollTop = logRef.current.scrollHeight;
-    }
+    if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
   }, [actionLog]);
 
   // ── Clear animation after 500ms ──────────────────
@@ -68,27 +65,24 @@ export default function GameBoard({ state, actions }) {
   const handleCellClick = useCallback(
     (row, col) => {
       if (phase === 'dice_roll' || phase === 'game_over' || phase === 'ai_turn') return;
-      if (showActionChoice) return; // Block clicks during action choice
+      if (showActionChoice) return;
 
       if (phase === 'player_turn') {
         const cellUnitId = board[row][col];
 
         if (selectedUnitId) {
-          // Click on a movable cell → move
           const isMovable = movableCells.some((c) => c.row === row && c.col === col);
           if (isMovable) {
             moveUnit(selectedUnitId, row, col);
             return;
           }
 
-          // Click on attack target (when in target-selection mode)
           const isTarget = attackTargets.includes(cellUnitId);
           if (isTarget) {
             initiateCombat(selectedUnitId, cellUnitId);
             return;
           }
 
-          // Click on another own unacted unit → switch
           if (
             cellUnitId &&
             units[cellUnitId]?.owner === 'player' &&
@@ -99,12 +93,10 @@ export default function GameBoard({ state, actions }) {
             return;
           }
 
-          // Click elsewhere → deselect
           deselectUnit();
           return;
         }
 
-        // No unit selected: click own unacted unit on board to select
         if (
           cellUnitId &&
           units[cellUnitId]?.owner === 'player' &&
@@ -139,41 +131,31 @@ export default function GameBoard({ state, actions }) {
 
   const handleChooseAttack = useCallback(() => {
     chooseAttack();
-    // If only 1 target, auto-attack it
     if (attackTargets.length === 1 && selectedUnitId) {
-      // Need to dispatch after state updates (next tick)
       setTimeout(() => initiateCombat(selectedUnitId, attackTargets[0]), 50);
     }
   }, [chooseAttack, attackTargets, selectedUnitId, initiateCombat]);
 
-  // ── Skip remaining unacted units ──────────────────
+  // ── End turn ─────────────────────────────────────
 
   const handleEndTurn = useCallback(() => {
     if (phase !== 'player_turn') return;
-    const unacted = playerUnitIds.filter(
-      (id) => !units[id].hasActed && units[id].hp > 0
-    );
+    const unacted = playerUnitIds.filter((id) => !units[id].hasActed && units[id].hp > 0);
     unacted.forEach((id) => endPlayerUnit(id));
   }, [phase, playerUnitIds, units, endPlayerUnit]);
 
   // ── AI Turn ──────────────────────────────────────
 
   useEffect(() => {
-    if (phase !== 'ai_turn') {
-      aiRunningRef.current = false;
-      return;
-    }
+    if (phase !== 'ai_turn') { aiRunningRef.current = false; return; }
     if (aiRunningRef.current) return;
-
     aiRunningRef.current = true;
 
     const processAiUnit = () => {
       const s = stateRef.current;
       const livingAi = s.aiUnitIds.filter((id) => s.units[id].hp > 0);
       const orderedAi = [...livingAi].sort((a, b) => {
-        const aActed = s.units[a].hasActed ? 1 : 0;
-        const bActed = s.units[b].hasActed ? 1 : 0;
-        return aActed - bActed;
+        return (s.units[a].hasActed ? 1 : 0) - (s.units[b].hasActed ? 1 : 0);
       });
 
       if (orderedAi.length === 0) return;
@@ -183,6 +165,7 @@ export default function GameBoard({ state, actions }) {
 
       const action = decideAiAction(
         s.board,
+        s.terrain,
         nextUnit,
         s.units,
         s.playerUnitIds,
@@ -195,22 +178,19 @@ export default function GameBoard({ state, actions }) {
           aiRunningRef.current = false;
           return;
         }
-
         if (action.action === 'attack') {
           aiAttack(nextUnit, action.targetId);
           aiRunningRef.current = false;
           return;
         }
-
         if (action.action === 'move_attack') {
           aiMoveUnit(nextUnit, action.toRow, action.toCol);
           setTimeout(() => {
             aiAttack(nextUnit, action.targetId);
             aiRunningRef.current = false;
-          }, 700); // Extended to account for animation
+          }, 700);
           return;
         }
-
         if (action.action === 'move') {
           aiMoveUnit(nextUnit, action.toRow, action.toCol);
           setTimeout(() => {
@@ -219,7 +199,6 @@ export default function GameBoard({ state, actions }) {
           }, 600);
           return;
         }
-
         aiSkipUnit(nextUnit);
         aiRunningRef.current = false;
       }, 500);
@@ -253,6 +232,14 @@ export default function GameBoard({ state, actions }) {
     state.combatAttackerId &&
     units[state.combatAttackerId]?.owner === 'ai';
 
+  // Count terrain types
+  const terrainCounts = { highland: 0, river: 0, spring: 0 };
+  if (terrain) {
+    for (let r = 0; r < 10; r++)
+      for (let c = 0; c < 10; c++)
+        if (terrain[r][c]) terrainCounts[terrain[r][c]]++;
+  }
+
   return (
     <div className="game-page">
       <div className="game-header">
@@ -263,10 +250,12 @@ export default function GameBoard({ state, actions }) {
           🦸 {playerLiving} vs {aiLiving} 🤖
         </span>
         <span className="game-msg">{message}</span>
+        <span className="terrain-info" title="地形分布">
+          ⛰️{terrainCounts.highland} 🌊{terrainCounts.river} 💧{terrainCounts.spring}
+        </span>
       </div>
 
       <div className="game-main">
-        {/* Player units panel */}
         <div className="side-panel player-panel">
           <h3>你的战队</h3>
           {playerUnitIds.map((id) => (
@@ -289,7 +278,6 @@ export default function GameBoard({ state, actions }) {
           ))}
         </div>
 
-        {/* Board */}
         <div className="board-container">
           <div className="board-half-label top-label">—— AI 半场 ——</div>
           <div className="board-grid">
@@ -300,6 +288,7 @@ export default function GameBoard({ state, actions }) {
                   row={row}
                   col={col}
                   unit={cellUnitId ? units[cellUnitId] : null}
+                  terrainType={terrain ? terrain[row][col] : null}
                   isMovable={isMovableCell(row, col)}
                   isAttackTarget={isAttackCell(row, col)}
                   isSelected={
@@ -316,9 +305,13 @@ export default function GameBoard({ state, actions }) {
             )}
           </div>
           <div className="board-half-label bottom-label">—— 你的半场 ——</div>
+          <div className="terrain-legend">
+            <span>⛰️ 高地：攻击+1 / 防御+1</span>
+            <span>🌊 河流：移动停止 / 每回合-1 HP</span>
+            <span>💧 泉水：每回合 +1 HP</span>
+          </div>
         </div>
 
-        {/* AI units panel */}
         <div className="side-panel ai-panel">
           <h3>AI 战队</h3>
           {aiUnitIds.map((id) => (
@@ -355,7 +348,6 @@ export default function GameBoard({ state, actions }) {
         </div>
       )}
 
-      {/* Bottom bar */}
       <div className="game-bottom">
         <div className="action-log" ref={logRef}>
           {actionLog.map((msg, i) => (
@@ -369,7 +361,6 @@ export default function GameBoard({ state, actions }) {
         )}
       </div>
 
-      {/* Dice modal */}
       {phase === 'dice_roll' && (
         <DiceModal
           state={state}

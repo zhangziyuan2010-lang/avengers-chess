@@ -31,6 +31,14 @@ export default function UnitCard({ unit, isSelected, isActed, onClick }) {
         <span>⚔️{charData.attack}</span>
         <span>🎯{charData.range}</span>
       </div>
+      {charData.skillName && (
+        <div className="unit-skill" title={charData.skillDesc}>
+          {charData.skillName}
+        </div>
+      )}
+      {unit.shocked && (
+        <div className="unit-debuff">⚡ 移动-1</div>
+      )}
       {isActed && !isDead && <div className="acted-overlay">已行动</div>}
     </div>
   );

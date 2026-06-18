@@ -2,10 +2,13 @@ import { useReducer, useCallback } from 'react';
 import { getCharacter } from '../data/characters';
 import {
   createEmptyBoard,
+  createEmptyTerrain,
   placeUnitsOnRows,
   readPositionsFromBoard,
+  generateTerrain,
   getMovableCells,
   getAttackableTargets,
+  TERRAIN_TYPES,
 } from '../game/board';
 import { resolveCombat } from '../game/dice';
 
@@ -14,6 +17,93 @@ import { resolveCombat } from '../game/dice';
 function makeUnitId(charId, owner) {
   return `${charId}_${owner}`;
 }
+
+/**
+ * Calculate combat bonuses from skills and terrain.
+ */
+function getCombatBonuses(attacker, defender, terrain) {
+  let attackerBonus = 0;
+  let defenderBonus = 0;
+  let extraDamage = 0;
+
+  // ── Attacker bonuses ──
+  if (attacker.charId === 'thor') {
+    // 雷神: 雷霆之怒 → 攻击骰子 +1
+    attackerBonus += 1;
+  }
+
+  if (attacker.charId === 'hulk') {
+    // 绿巨人: 狂暴 → HP < 50% 时攻击力 +1
+    if (attacker.hp < attacker.maxHp * 0.5) {
+      extraDamage += 1;
+    }
+  }
+
+  // ── Defender bonuses ──
+  if (defender.charId === 'captain') {
+    // 美队: 振金盾牌 → 防御骰子 +1
+    defenderBonus += 1;
+  }
+
+  // ── Terrain: Highland ──
+  if (terrain && terrain[attacker.row] && terrain[attacker.row][attacker.col] === TERRAIN_TYPES.HIGHLAND) {
+    extraDamage += 1;
+  }
+  if (terrain && terrain[defender.row] && terrain[defender.row][defender.col] === TERRAIN_TYPES.HIGHLAND) {
+    defenderBonus += 1;
+  }
+
+  return { attackerBonus, defenderBonus, extraDamage };
+}
+
+/**
+ * Apply terrain HP effects for a side at turn start.
+ */
+function applyTerrainHpEffects(units, unitIds, terrain) {
+  const newUnits = { ...units };
+  const logEntries = [];
+
+  for (const id of unitIds) {
+    const unit = newUnits[id];
+    if (!unit || unit.hp <= 0) continue;
+
+    const t = terrain[unit.row]?.[unit.col];
+
+    if (t === TERRAIN_TYPES.SPRING) {
+      // 泉水: +1 HP（不超过最大值）
+      if (unit.hp < unit.maxHp) {
+        newUnits[id] = { ...unit, hp: Math.min(unit.maxHp, unit.hp + 1) };
+        const charData = getCharacter(unit.charId);
+        logEntries.push(`💧 ${charData.name} 站在泉水中，回复 1 HP`);
+      }
+    }
+
+    if (t === TERRAIN_TYPES.RIVER) {
+      // 河流: -1 HP
+      newUnits[id] = { ...unit, hp: unit.hp - 1 };
+      const charData = getCharacter(unit.charId);
+      logEntries.push(`🌊 ${charData.name} 站在河流中，受到 1 点伤害`);
+    }
+  }
+
+  return { newUnits, logEntries };
+}
+
+/**
+ * Consume shock debuffs at turn start (clear shocked flag).
+ * Move reduction is handled during getMovableCells via shocked param.
+ */
+function consumeShocks(units, unitIds) {
+  const newUnits = { ...units };
+  for (const id of unitIds) {
+    if (newUnits[id] && newUnits[id].shocked) {
+      newUnits[id] = { ...newUnits[id], shocked: false };
+    }
+  }
+  return newUnits;
+}
+
+// ── buildInitialState ────────────────────────────────
 
 function buildInitialState(playerCharIds, aiCharIds) {
   const units = {};
@@ -31,6 +121,7 @@ function buildInitialState(playerCharIds, aiCharIds) {
       hp: c.hp,
       maxHp: c.hp,
       hasActed: false,
+      shocked: false,
     };
     playerUnitIds.push(id);
   });
@@ -46,16 +137,15 @@ function buildInitialState(playerCharIds, aiCharIds) {
       hp: c.hp,
       maxHp: c.hp,
       hasActed: false,
+      shocked: false,
     };
     aiUnitIds.push(id);
   });
 
-  // Place on board: AI rows 0-1, player rows 8-9
   let board = createEmptyBoard();
   board = placeUnitsOnRows(board, aiUnitIds, 0, 1);
   board = placeUnitsOnRows(board, playerUnitIds, 8, 9);
 
-  // Read all positions back from board (fixes the row-not-set bug)
   const allIds = [...aiUnitIds, ...playerUnitIds];
   const positions = readPositionsFromBoard(board, allIds);
   for (const [id, pos] of Object.entries(positions)) {
@@ -63,12 +153,20 @@ function buildInitialState(playerCharIds, aiCharIds) {
     units[id].col = pos.col;
   }
 
+  // Generate terrain AFTER unit placement
+  const terrain = generateTerrain(board);
+
   const firstTurn = Math.random() < 0.5 ? 'player' : 'ai';
+
+  // Apply terrain HP effects for first-turn side
+  const firstSideIds = firstTurn === 'player' ? playerUnitIds : aiUnitIds;
+  const { newUnits, logEntries } = applyTerrainHpEffects(units, firstSideIds, terrain);
 
   return {
     phase: firstTurn === 'player' ? 'player_turn' : 'ai_turn',
     board,
-    units,
+    terrain,
+    units: newUnits,
     playerUnitIds,
     aiUnitIds,
     selectedUnitId: null,
@@ -80,7 +178,10 @@ function buildInitialState(playerCharIds, aiCharIds) {
     combatDefenderId: null,
     winner: null,
     turn: firstTurn,
-    actionLog: [firstTurn === 'player' ? '你先手！点击棋子开始行动' : 'AI 先手！'],
+    actionLog: [
+      firstTurn === 'player' ? '你先手！点击棋子开始行动' : 'AI 先手！',
+      ...logEntries,
+    ],
     message: firstTurn === 'player' ? '你的回合 — 点击棋子开始行动' : 'AI 正在思考...',
     gameOver: false,
     aiProcessingIndex: 0,
@@ -130,16 +231,23 @@ function gameReducer(state, action) {
       const unit = state.units[action.unitId];
       if (!unit || unit.owner !== 'player' || unit.hasActed || unit.hp <= 0) return state;
       if (state.phase !== 'player_turn') return state;
-      if (state.showActionChoice) return state; // Can't select during action choice
+      if (state.showActionChoice) return state;
 
       const charData = getCharacter(unit.charId);
-      const movableCells = getMovableCells(state.board, unit.row, unit.col, charData);
+      const movableCells = getMovableCells(
+        state.board,
+        state.terrain,
+        unit.row,
+        unit.col,
+        charData,
+        unit.shocked
+      );
 
       return { ...state, selectedUnitId: action.unitId, movableCells, attackTargets: [] };
     }
 
     case 'DESELECT_UNIT': {
-      if (state.showActionChoice) return state; // Can't deselect during action choice
+      if (state.showActionChoice) return state;
       return { ...state, selectedUnitId: null, movableCells: [], attackTargets: [] };
     }
 
@@ -187,15 +295,10 @@ function gameReducer(state, action) {
     }
 
     case 'CHOOSE_ATTACK': {
-      // Player chose to attack → enable target selection
-      return {
-        ...state,
-        showActionChoice: false,
-      };
+      return { ...state, showActionChoice: false };
     }
 
     case 'CHOOSE_REST': {
-      // Player chose to rest → end unit action
       const unit = state.units[state.selectedUnitId];
       if (!unit) return state;
       const newUnits = {
@@ -203,46 +306,17 @@ function gameReducer(state, action) {
         [state.selectedUnitId]: { ...unit, hasActed: true },
       };
 
-      const allActed = state.playerUnitIds.every(
-        (id) => newUnits[id].hasActed || newUnits[id].hp <= 0
-      );
-
-      if (allActed) {
-        const gameOver = checkGameOver({ ...state, units: newUnits });
-        if (gameOver) return gameOver;
-
-        const resetUnits = {};
-        Object.keys(newUnits).forEach((id) => {
-          resetUnits[id] = { ...newUnits[id], hasActed: false };
-        });
-        return {
-          ...state,
-          units: resetUnits,
-          phase: 'ai_turn',
-          turn: 'ai',
-          message: 'AI 正在思考...',
-          aiProcessingIndex: 0,
-          showActionChoice: false,
-          selectedUnitId: null,
-          movableCells: [],
-          attackTargets: [],
-          actionLog: [...state.actionLog, '—— AI 回合 ——'],
-        };
-      }
-
-      return {
-        ...state,
-        units: newUnits,
-        showActionChoice: false,
-        selectedUnitId: null,
-        movableCells: [],
-        attackTargets: [],
-      };
+      return endPlayerTurnCheck({ ...state, units: newUnits, showActionChoice: false, selectedUnitId: null, movableCells: [], attackTargets: [] });
     }
 
     case 'INITIATE_COMBAT': {
       const { attackerId, defenderId } = action;
-      const rounds = resolveCombat();
+      const attacker = state.units[attackerId];
+      const defender = state.units[defenderId];
+
+      const { attackerBonus, defenderBonus } = getCombatBonuses(attacker, defender, state.terrain);
+      const rounds = resolveCombat(attackerBonus, defenderBonus);
+
       return {
         ...state,
         phase: 'dice_roll',
@@ -250,6 +324,8 @@ function gameReducer(state, action) {
         combatDefenderId: defenderId,
         diceRounds: rounds,
         diceRoundIndex: 0,
+        combatAttackerBonus: attackerBonus,
+        combatDefenderBonus: defenderBonus,
         attackTargets: [],
         selectedUnitId: null,
         showActionChoice: false,
@@ -272,13 +348,24 @@ function gameReducer(state, action) {
       let logMsg = '';
 
       if (hit) {
-        const newHp = Math.max(0, defender.hp - attackerChar.attack);
+        const { extraDamage } = getCombatBonuses(attacker, defender, state.terrain);
+        const totalDamage = attackerChar.attack + extraDamage;
+        const newHp = Math.max(0, defender.hp - totalDamage);
         newUnits = {
           ...newUnits,
           [state.combatDefenderId]: { ...defender, hp: newHp },
         };
-        logMsg = `${attackerChar.name} ⚔️ ${defenderChar.name} → 命中！-${attackerChar.attack} HP`;
-        if (newHp <= 0) logMsg += ` ${defenderChar.name} 被击败！`;
+        logMsg = `${attackerChar.name} ⚔️ ${defenderChar.name} → 命中！-${totalDamage} HP`;
+        if (newHp <= 0) {
+          logMsg += ` ${defenderChar.name} 被击败！`;
+        } else if (attacker.charId === 'widow') {
+          // 黑寡妇: 电击手环 → 目标下回合移动力 -1
+          newUnits[state.combatDefenderId] = {
+            ...newUnits[state.combatDefenderId],
+            shocked: true,
+          };
+          logMsg += ` ⚡${defenderChar.name} 被电击，下回合移动力 -1`;
+        }
       } else {
         logMsg = `${attackerChar.name} ⚔️ ${defenderChar.name} → 未命中`;
       }
@@ -296,41 +383,12 @@ function gameReducer(state, action) {
         diceRoundIndex: 0,
         combatAttackerId: null,
         combatDefenderId: null,
+        combatAttackerBonus: 0,
+        combatDefenderBonus: 0,
         actionLog: [...state.actionLog, logMsg],
       };
 
-      const allActed = newState.playerUnitIds.every(
-        (id) => newUnits[id].hasActed || newUnits[id].hp <= 0
-      );
-
-      if (allActed) {
-        const gameOver = checkGameOver({ ...newState, units: newUnits });
-        if (gameOver) return gameOver;
-
-        const resetUnits = {};
-        Object.keys(newUnits).forEach((id) => {
-          resetUnits[id] = { ...newUnits[id], hasActed: false };
-        });
-        return {
-          ...newState,
-          units: resetUnits,
-          phase: 'ai_turn',
-          turn: 'ai',
-          message: 'AI 正在思考...',
-          aiProcessingIndex: 0,
-          selectedUnitId: null,
-          movableCells: [],
-          attackTargets: [],
-          actionLog: [...newState.actionLog, '—— AI 回合 ——'],
-        };
-      }
-
-      return {
-        ...newState,
-        selectedUnitId: null,
-        movableCells: [],
-        attackTargets: [],
-      };
+      return endPlayerTurnCheck(newState);
     }
 
     case 'END_PLAYER_UNIT': {
@@ -340,40 +398,13 @@ function gameReducer(state, action) {
         [action.unitId]: { ...unit, hasActed: true },
       };
 
-      const allActed = state.playerUnitIds.every(
-        (id) => newUnits[id].hasActed || newUnits[id].hp <= 0
-      );
-
-      if (allActed) {
-        const gameOver = checkGameOver({ ...state, units: newUnits });
-        if (gameOver) return gameOver;
-
-        const resetUnits = {};
-        Object.keys(newUnits).forEach((id) => {
-          resetUnits[id] = { ...newUnits[id], hasActed: false };
-        });
-        return {
-          ...state,
-          units: resetUnits,
-          phase: 'ai_turn',
-          turn: 'ai',
-          message: 'AI 正在思考...',
-          aiProcessingIndex: 0,
-          actionLog: [...state.actionLog, '—— AI 回合 ——'],
-          selectedUnitId: null,
-          movableCells: [],
-          attackTargets: [],
-          showActionChoice: false,
-        };
-      }
-
-      return {
+      return endPlayerTurnCheck({
         ...state,
         units: newUnits,
         selectedUnitId: null,
         movableCells: [],
         attackTargets: [],
-      };
+      });
     }
 
     case 'AI_MOVE': {
@@ -405,7 +436,12 @@ function gameReducer(state, action) {
 
     case 'AI_ATTACK': {
       const { attackerId, defenderId } = action;
-      const rounds = resolveCombat();
+      const attacker = state.units[attackerId];
+      const defender = state.units[defenderId];
+
+      const { attackerBonus, defenderBonus } = getCombatBonuses(attacker, defender, state.terrain);
+      const rounds = resolveCombat(attackerBonus, defenderBonus);
+
       return {
         ...state,
         phase: 'dice_roll',
@@ -413,6 +449,8 @@ function gameReducer(state, action) {
         combatDefenderId: defenderId,
         diceRounds: rounds,
         diceRoundIndex: 0,
+        combatAttackerBonus: attackerBonus,
+        combatDefenderBonus: defenderBonus,
       };
     }
 
@@ -428,12 +466,14 @@ function gameReducer(state, action) {
       let logMsg = '';
 
       if (hit) {
-        const newHp = Math.max(0, defender.hp - attackerChar.attack);
+        const { extraDamage } = getCombatBonuses(attacker, defender, state.terrain);
+        const totalDamage = attackerChar.attack + extraDamage;
+        const newHp = Math.max(0, defender.hp - totalDamage);
         newUnits = {
           ...newUnits,
           [state.combatDefenderId]: { ...defender, hp: newHp },
         };
-        logMsg = `AI ${attackerChar.name} ⚔️ ${defenderChar.name} → 命中！-${attackerChar.attack} HP`;
+        logMsg = `AI ${attackerChar.name} ⚔️ ${defenderChar.name} → 命中！-${totalDamage} HP`;
         if (newHp <= 0) logMsg += ` ${defenderChar.name} 被击败！`;
       } else {
         logMsg = `AI ${attackerChar.name} ⚔️ ${defenderChar.name} → 未命中`;
@@ -454,37 +494,13 @@ function gameReducer(state, action) {
         diceRoundIndex: 0,
         combatAttackerId: null,
         combatDefenderId: null,
+        combatAttackerBonus: 0,
+        combatDefenderBonus: 0,
         aiProcessingIndex: nextIndex,
         actionLog: [...state.actionLog, logMsg],
       };
 
-      const allActed = state.aiUnitIds.every(
-        (id) => newUnits[id].hasActed || newUnits[id].hp <= 0
-      );
-
-      if (allActed) {
-        const gameOver = checkGameOver(newState);
-        if (gameOver) return gameOver;
-
-        const resetUnits = {};
-        Object.keys(newUnits).forEach((id) => {
-          resetUnits[id] = { ...newUnits[id], hasActed: false };
-        });
-        return {
-          ...newState,
-          units: resetUnits,
-          phase: 'player_turn',
-          turn: 'player',
-          message: '你的回合 — 点击棋子开始行动',
-          actionLog: [...newState.actionLog, '—— 你的回合 ——'],
-          aiProcessingIndex: 0,
-          selectedUnitId: null,
-          movableCells: [],
-          attackTargets: [],
-        };
-      }
-
-      return newState;
+      return endAiTurnCheck(newState);
     }
 
     case 'AI_SKIP_UNIT': {
@@ -494,39 +510,11 @@ function gameReducer(state, action) {
       };
       const nextIndex = state.aiProcessingIndex + 1;
 
-      const newState = {
+      return endAiTurnCheck({
         ...state,
         units: newUnits,
         aiProcessingIndex: nextIndex,
-      };
-
-      const allActed = state.aiUnitIds.every(
-        (id) => newUnits[id].hasActed || newUnits[id].hp <= 0
-      );
-
-      if (allActed) {
-        const gameOver = checkGameOver(newState);
-        if (gameOver) return gameOver;
-
-        const resetUnits = {};
-        Object.keys(newUnits).forEach((id) => {
-          resetUnits[id] = { ...newUnits[id], hasActed: false };
-        });
-        return {
-          ...newState,
-          units: resetUnits,
-          phase: 'player_turn',
-          turn: 'player',
-          message: '你的回合 — 点击棋子开始行动',
-          actionLog: [...newState.actionLog, '—— 你的回合 ——'],
-          aiProcessingIndex: 0,
-          selectedUnitId: null,
-          movableCells: [],
-          attackTargets: [],
-        };
-      }
-
-      return newState;
+      });
     }
 
     default:
@@ -534,15 +522,102 @@ function gameReducer(state, action) {
   }
 }
 
+// ── turn-end helpers ──────────────────────────────────
+
+function endPlayerTurnCheck(state) {
+  const allActed = state.playerUnitIds.every(
+    (id) => state.units[id].hasActed || state.units[id].hp <= 0
+  );
+
+  if (!allActed) {
+    return {
+      ...state,
+      selectedUnitId: null,
+      movableCells: [],
+      attackTargets: [],
+    };
+  }
+
+  // Game over check
+  const gameOver = checkGameOver(state);
+  if (gameOver) return gameOver;
+
+  // Consume AI shock debuffs
+  let newUnits = consumeShocks(state.units, state.aiUnitIds);
+
+  // Apply terrain HP effects for AI side
+  const { newUnits: terrainUnits, logEntries } = applyTerrainHpEffects(newUnits, state.aiUnitIds, state.terrain);
+  newUnits = terrainUnits;
+
+  // Reset hasActed
+  const resetUnits = {};
+  Object.keys(newUnits).forEach((id) => {
+    resetUnits[id] = { ...newUnits[id], hasActed: false };
+  });
+
+  return {
+    ...state,
+    units: resetUnits,
+    phase: 'ai_turn',
+    turn: 'ai',
+    message: 'AI 正在思考...',
+    aiProcessingIndex: 0,
+    selectedUnitId: null,
+    movableCells: [],
+    attackTargets: [],
+    showActionChoice: false,
+    actionLog: [...state.actionLog, ...logEntries, '—— AI 回合 ——'],
+  };
+}
+
+function endAiTurnCheck(state) {
+  const allActed = state.aiUnitIds.every(
+    (id) => state.units[id].hasActed || state.units[id].hp <= 0
+  );
+
+  if (!allActed) return state;
+
+  // Game over check
+  const gameOver = checkGameOver(state);
+  if (gameOver) return gameOver;
+
+  // Consume player shock debuffs
+  let newUnits = consumeShocks(state.units, state.playerUnitIds);
+
+  // Apply terrain HP effects for player side
+  const { newUnits: terrainUnits, logEntries } = applyTerrainHpEffects(newUnits, state.playerUnitIds, state.terrain);
+  newUnits = terrainUnits;
+
+  // Check for deaths from terrain
+  const gameOverAfterTerrain = checkGameOver({ ...state, units: newUnits });
+  if (gameOverAfterTerrain) return gameOverAfterTerrain;
+
+  // Reset hasActed
+  const resetUnits = {};
+  Object.keys(newUnits).forEach((id) => {
+    resetUnits[id] = { ...newUnits[id], hasActed: false };
+  });
+
+  return {
+    ...state,
+    units: resetUnits,
+    phase: 'player_turn',
+    turn: 'player',
+    message: '你的回合 — 点击棋子开始行动',
+    actionLog: [...state.actionLog, ...logEntries, '—— 你的回合 ——'],
+    aiProcessingIndex: 0,
+    selectedUnitId: null,
+    movableCells: [],
+    attackTargets: [],
+  };
+}
+
 // ── hook ──────────────────────────────────────────────
 
 export function useGame() {
   const [state, dispatch] = useReducer(gameReducer, null);
 
-  const selectUnit = useCallback(
-    (unitId) => dispatch({ type: 'SELECT_UNIT', unitId }),
-    []
-  );
+  const selectUnit = useCallback((unitId) => dispatch({ type: 'SELECT_UNIT', unitId }), []);
   const deselectUnit = useCallback(() => dispatch({ type: 'DESELECT_UNIT' }), []);
   const moveUnit = useCallback(
     (unitId, toRow, toCol) => dispatch({ type: 'MOVE_UNIT', unitId, toRow, toCol }),
@@ -552,26 +627,18 @@ export function useGame() {
   const chooseAttack = useCallback(() => dispatch({ type: 'CHOOSE_ATTACK' }), []);
   const chooseRest = useCallback(() => dispatch({ type: 'CHOOSE_REST' }), []);
   const initiateCombat = useCallback(
-    (attackerId, defenderId) =>
-      dispatch({ type: 'INITIATE_COMBAT', attackerId, defenderId }),
+    (attackerId, defenderId) => dispatch({ type: 'INITIATE_COMBAT', attackerId, defenderId }),
     []
   );
   const nextDiceRound = useCallback(() => dispatch({ type: 'NEXT_DICE_ROUND' }), []);
-  const resolveDicePlayer = useCallback(
-    () => dispatch({ type: 'RESOLVE_DICE_PLAYER' }),
-    []
-  );
-  const endPlayerUnit = useCallback(
-    (unitId) => dispatch({ type: 'END_PLAYER_UNIT', unitId }),
-    []
-  );
+  const resolveDicePlayer = useCallback(() => dispatch({ type: 'RESOLVE_DICE_PLAYER' }), []);
+  const endPlayerUnit = useCallback((unitId) => dispatch({ type: 'END_PLAYER_UNIT', unitId }), []);
   const aiMoveUnit = useCallback(
     (unitId, toRow, toCol) => dispatch({ type: 'AI_MOVE', unitId, toRow, toCol }),
     []
   );
   const aiAttack = useCallback(
-    (attackerId, defenderId) =>
-      dispatch({ type: 'AI_ATTACK', attackerId, defenderId }),
+    (attackerId, defenderId) => dispatch({ type: 'AI_ATTACK', attackerId, defenderId }),
     []
   );
   const aiResolveDice = useCallback(() => dispatch({ type: 'AI_RESOLVE_DICE' }), []);

@@ -4,12 +4,15 @@ export const CHARACTERS = [
     name: '钢铁侠',
     enName: 'Iron Man',
     color: '#dc2626',
-    move: 3,
+    move: 4,
     attack: 3,
     hp: 9,
     range: 1,
     emoji: '🦾',
-    desc: '装甲飞行，速度与力量兼备',
+    fly: true,
+    desc: '飞行推进：可穿越任何单位，移动力 4',
+    skillName: '飞行推进',
+    skillDesc: '可穿越任何单位，移动力 4',
   },
   {
     id: 'thor',
@@ -21,7 +24,8 @@ export const CHARACTERS = [
     hp: 11,
     range: 1,
     emoji: '⚡',
-    desc: '雷霆之锤，伤害极高',
+    skillName: '雷霆之怒',
+    skillDesc: '攻击时骰子点数 +1（更容易命中）',
   },
   {
     id: 'hulk',
@@ -33,7 +37,8 @@ export const CHARACTERS = [
     hp: 16,
     range: 1,
     emoji: '💢',
-    desc: '血厚攻高，但移动缓慢',
+    skillName: '狂暴',
+    skillDesc: '血量低于 50% 时攻击力 +1',
   },
   {
     id: 'captain',
@@ -45,7 +50,8 @@ export const CHARACTERS = [
     hp: 13,
     range: 1,
     emoji: '🛡️',
-    desc: '最强防御，坚不可摧',
+    skillName: '振金盾牌',
+    skillDesc: '被攻击时防御骰子 +1（更难被命中）',
   },
   {
     id: 'hawkeye',
@@ -58,7 +64,8 @@ export const CHARACTERS = [
     range: 2,
     emoji: '🏹',
     fly: true,
-    desc: '远程狙击，可穿越任何单位，2格射程',
+    skillName: '神射 + 敏捷',
+    skillDesc: '2 格远程攻击，可穿越任何单位',
   },
   {
     id: 'widow',
@@ -70,7 +77,8 @@ export const CHARACTERS = [
     hp: 9,
     range: 1,
     emoji: '🕷️',
-    desc: '敏捷特工，行动迅速',
+    skillName: '电击手环',
+    skillDesc: '命中后，目标下回合移动力 -1',
   },
 ];
 

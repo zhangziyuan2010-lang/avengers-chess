@@ -8,11 +8,23 @@ const DIRECTIONS = [
   [0, 1],
 ];
 
+export const TERRAIN_TYPES = {
+  HIGHLAND: 'highland',
+  RIVER: 'river',
+  SPRING: 'spring',
+};
+
 export function getBoardSize() {
   return BOARD_SIZE;
 }
 
 export function createEmptyBoard() {
+  return Array.from({ length: BOARD_SIZE }, () =>
+    Array.from({ length: BOARD_SIZE }, () => null)
+  );
+}
+
+export function createEmptyTerrain() {
   return Array.from({ length: BOARD_SIZE }, () =>
     Array.from({ length: BOARD_SIZE }, () => null)
   );
@@ -32,7 +44,6 @@ export function chebyshevDistance(r1, c1, r2, c2) {
 
 /**
  * Place units randomly within a row range [startRow, endRow] (inclusive).
- * Returns updated board.
  */
 export function placeUnitsOnRows(board, unitIds, startRow, endRow) {
   const newBoard = board.map((r) => [...r]);
@@ -66,6 +77,49 @@ export function readPositionsFromBoard(board, unitIds) {
   return positions;
 }
 
+/**
+ * Generate random terrain on empty cells.
+ * Total: 4-10 tiles. Types: highland ~40%, river ~35%, spring ~25%.
+ */
+export function generateTerrain(board) {
+  const terrain = createEmptyTerrain();
+
+  // Find empty cells
+  const emptyCells = [];
+  for (let r = 0; r < BOARD_SIZE; r++) {
+    for (let c = 0; c < BOARD_SIZE; c++) {
+      if (board[r][c] === null) {
+        emptyCells.push({ row: r, col: c });
+      }
+    }
+  }
+
+  if (emptyCells.length === 0) return terrain;
+
+  // 4-10 terrain tiles
+  const count = Math.min(10, emptyCells.length, Math.floor(Math.random() * 7) + 4);
+  const shuffledCells = shuffle([...emptyCells]);
+
+  // Distribute types
+  const highlandCount = Math.max(1, Math.floor(count * 0.4));
+  const riverCount = Math.max(1, Math.floor(count * 0.35));
+  const springCount = count - highlandCount - riverCount;
+
+  const types = [];
+  for (let i = 0; i < highlandCount; i++) types.push(TERRAIN_TYPES.HIGHLAND);
+  for (let i = 0; i < riverCount; i++) types.push(TERRAIN_TYPES.RIVER);
+  for (let i = 0; i < springCount; i++) types.push(TERRAIN_TYPES.SPRING);
+
+  const shuffledTypes = shuffle(types);
+
+  for (let i = 0; i < count; i++) {
+    const { row, col } = shuffledCells[i];
+    terrain[row][col] = shuffledTypes[i];
+  }
+
+  return terrain;
+}
+
 function shuffle(arr) {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
@@ -80,10 +134,12 @@ function shuffle(arr) {
  * - 4-directional movement
  * - Cannot end on occupied cell
  * - Non-fly units cannot pass through occupied cells
- * - Fly units (e.g. Hawkeye) can pass through any unit
+ * - River cells: can enter but stop (no further movement from river)
+ * - shocked: if true, maxSteps reduced by 1
  */
-export function getMovableCells(board, unitRow, unitCol, charData) {
-  const maxSteps = charData.move;
+export function getMovableCells(board, terrain, unitRow, unitCol, charData, shocked = false) {
+  let maxSteps = charData.move;
+  if (shocked) maxSteps = Math.max(0, maxSteps - 1);
   const canFly = charData.fly || false;
   const reachable = [];
   const visited = new Set();
@@ -97,6 +153,11 @@ export function getMovableCells(board, unitRow, unitCol, charData) {
       if (board[row][col] === null) {
         reachable.push({ row, col });
       }
+    }
+
+    // If we entered a river, stop (can't continue moving)
+    if (steps > 0 && terrain[row][col] === TERRAIN_TYPES.RIVER) {
+      continue;
     }
 
     if (steps >= maxSteps) continue;

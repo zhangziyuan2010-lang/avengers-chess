@@ -6,31 +6,30 @@ export function rollD6() {
 }
 
 /**
- * Resolve one round of combat dice.
- * Returns { attackerRoll, defenderRoll, hit: boolean | 'reroll' }
+ * Resolve one round of combat dice with bonuses.
+ * attackerBonus/defenderBonus: added to dice roll (e.g. +1 from skill or terrain).
  */
-export function resolveDiceRound() {
-  const attackerRoll = rollD6();
-  const defenderRoll = rollD6();
+export function resolveDiceRound(attackerBonus = 0, defenderBonus = 0) {
+  const attackerRoll = rollD6() + attackerBonus;
+  const defenderRoll = rollD6() + defenderBonus;
 
   if (attackerRoll > defenderRoll) {
-    return { attackerRoll, defenderRoll, result: 'hit' };
+    return { attackerRoll, defenderRoll, attackerBase: attackerRoll - attackerBonus, defenderBase: defenderRoll - defenderBonus, result: 'hit' };
   } else if (attackerRoll < defenderRoll) {
-    return { attackerRoll, defenderRoll, result: 'miss' };
+    return { attackerRoll, defenderRoll, attackerBase: attackerRoll - attackerBonus, defenderBase: defenderRoll - defenderBonus, result: 'miss' };
   } else {
-    return { attackerRoll, defenderRoll, result: 'reroll' };
+    return { attackerRoll, defenderRoll, attackerBase: attackerRoll - attackerBonus, defenderBase: defenderRoll - defenderBonus, result: 'reroll' };
   }
 }
 
 /**
  * Resolve combat fully (keeps rolling on ties).
- * Returns an array of rounds for animation purposes.
  */
-export function resolveCombat() {
+export function resolveCombat(attackerBonus = 0, defenderBonus = 0) {
   const rounds = [];
   let round;
   do {
-    round = resolveDiceRound();
+    round = resolveDiceRound(attackerBonus, defenderBonus);
     rounds.push(round);
   } while (round.result === 'reroll');
   return rounds;
