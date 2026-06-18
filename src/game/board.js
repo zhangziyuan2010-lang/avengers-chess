@@ -1,6 +1,6 @@
 import { getCharacter } from '../data/characters';
 
-const BOARD_SIZE = 6;
+const BOARD_SIZE = 10;
 const DIRECTIONS = [
   [-1, 0],
   [1, 0],
@@ -8,12 +8,9 @@ const DIRECTIONS = [
   [0, 1],
 ];
 
-// 8 surrounding cells (for attack range checks)
-const SURROUNDING_8 = [
-  [-1, -1], [-1, 0], [-1, 1],
-  [0, -1],           [0, 1],
-  [1, -1],  [1, 0],  [1, 1],
-];
+export function getBoardSize() {
+  return BOARD_SIZE;
+}
 
 export function createEmptyBoard() {
   return Array.from({ length: BOARD_SIZE }, () =>
@@ -34,16 +31,39 @@ export function chebyshevDistance(r1, c1, r2, c2) {
 }
 
 /**
- * Place units randomly on the given row.
+ * Place units randomly within a row range [startRow, endRow] (inclusive).
  * Returns updated board.
  */
-export function placeUnitsOnRow(board, unitIds, row) {
+export function placeUnitsOnRows(board, unitIds, startRow, endRow) {
   const newBoard = board.map((r) => [...r]);
-  const cols = shuffle([0, 1, 2, 3, 4, 5]);
+  const positions = [];
+  for (let r = startRow; r <= endRow; r++) {
+    for (let c = 0; c < BOARD_SIZE; c++) {
+      positions.push({ row: r, col: c });
+    }
+  }
+  const shuffled = shuffle(positions);
   unitIds.forEach((unitId, i) => {
-    newBoard[row][cols[i]] = unitId;
+    const { row, col } = shuffled[i];
+    newBoard[row][col] = unitId;
   });
   return newBoard;
+}
+
+/**
+ * Read unit positions back from the board after placement.
+ */
+export function readPositionsFromBoard(board, unitIds) {
+  const positions = {};
+  for (let r = 0; r < BOARD_SIZE; r++) {
+    for (let c = 0; c < BOARD_SIZE; c++) {
+      const uid = board[r][c];
+      if (uid && unitIds.includes(uid)) {
+        positions[uid] = { row: r, col: c };
+      }
+    }
+  }
+  return positions;
 }
 
 function shuffle(arr) {
@@ -60,7 +80,7 @@ function shuffle(arr) {
  * - 4-directional movement
  * - Cannot end on occupied cell
  * - Non-fly units cannot pass through occupied cells
- * - Fly units (Skye) can pass through any unit
+ * - Fly units (e.g. Hawkeye) can pass through any unit
  */
 export function getMovableCells(board, unitRow, unitCol, charData) {
   const maxSteps = charData.move;
@@ -74,7 +94,6 @@ export function getMovableCells(board, unitRow, unitCol, charData) {
     const { row, col, steps } = queue.shift();
 
     if (steps > 0) {
-      // Can stop on empty cells only
       if (board[row][col] === null) {
         reachable.push({ row, col });
       }
@@ -93,11 +112,9 @@ export function getMovableCells(board, unitRow, unitCol, charData) {
       const occupied = board[nr][nc] !== null;
 
       if (occupied && !canFly) {
-        // Non-fly: cannot enter occupied cells at all
         continue;
       }
 
-      // Fly: can pass through, or cell is empty
       visited.add(key);
       queue.push({ row: nr, col: nc, steps: steps + 1 });
     }
@@ -107,9 +124,7 @@ export function getMovableCells(board, unitRow, unitCol, charData) {
 }
 
 /**
- * Find all enemy units within attack range of the given position.
- * Uses Chebyshev distance (accounts for diagonals).
- * No line-of-sight blocking.
+ * Find all enemy units within attack range (Chebyshev distance).
  */
 export function getAttackableTargets(
   board,
@@ -135,28 +150,6 @@ export function getAttackableTargets(
   return targets;
 }
 
-/**
- * Get all positions within Chebyshev distance ≤ range from (row, col),
- * excluding the origin. Used for highlighting attack range.
- */
-export function getCellsInRange(row, col, range) {
-  const cells = [];
-  for (let dr = -range; dr <= range; dr++) {
-    for (let dc = -range; dc <= range; dc++) {
-      if (dr === 0 && dc === 0) continue;
-      const nr = row + dr;
-      const nc = col + dc;
-      if (isInBounds(nr, nc)) {
-        cells.push({ row: nr, col: nc });
-      }
-    }
-  }
-  return cells;
-}
-
-/**
- * Check if a specific enemy unit is within attack range.
- */
 export function isEnemyInRange(attackerRow, attackerCol, range, enemyRow, enemyCol) {
   return chebyshevDistance(attackerRow, attackerCol, enemyRow, enemyCol) <= range;
 }

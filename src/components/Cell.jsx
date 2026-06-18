@@ -7,6 +7,8 @@ export default function Cell({
   isMovable,
   isAttackTarget,
   isSelected,
+  isGhost,
+  isAnimatingIn,
   onClick,
 }) {
   const charData = unit ? getCharacter(unit.charId) : null;
@@ -16,16 +18,33 @@ export default function Cell({
   if (isMovable) cellClass += ' movable';
   if (isAttackTarget) cellClass += ' attack-target';
   if (isSelected) cellClass += ' selected-cell';
+  if (isAnimatingIn) cellClass += ' animating-in';
+
+  // Ghost: render faded unit at previous position during animation
+  if (isGhost && charData) {
+    return (
+      <div className="cell ghost-cell" onClick={() => onClick(row, col)}>
+        <div className="cell-unit ghost">
+          <span className="cell-unit-emoji">{charData.emoji}</span>
+          <div className="cell-unit-hp">
+            <div
+              className="cell-unit-hp-fill"
+              style={{
+                width: `${Math.max(0, (unit.hp / unit.maxHp) * 100)}%`,
+                backgroundColor: charData.color,
+              }}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={cellClass} onClick={() => onClick(row, col)}>
-      {/* Grid label for row 0 and col 0 */}
-      {row === 5 && <span className="cell-label col-label">{col}</span>}
-      {col === 0 && <span className="cell-label row-label">{row}</span>}
-
       {unit && !isDead && (
         <div
-          className={`cell-unit ${unit.owner}`}
+          className={`cell-unit ${unit.owner} ${isAnimatingIn ? 'pop-in' : ''}`}
           style={{ '--char-color': charData?.color }}
         >
           <span className="cell-unit-emoji">{charData?.emoji}</span>

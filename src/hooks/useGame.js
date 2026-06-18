@@ -2,7 +2,8 @@ import { useReducer, useCallback } from 'react';
 import { getCharacter } from '../data/characters';
 import {
   createEmptyBoard,
-  placeUnitsOnRow,
+  placeUnitsOnRows,
+  readPositionsFromBoard,
   getMovableCells,
   getAttackableTargets,
 } from '../game/board';
@@ -25,8 +26,8 @@ function buildInitialState(playerCharIds, aiCharIds) {
     units[id] = {
       charId,
       owner: 'player',
-      row: 0,
-      col: 0,
+      row: -1,
+      col: -1,
       hp: c.hp,
       maxHp: c.hp,
       hasActed: false,
@@ -40,8 +41,8 @@ function buildInitialState(playerCharIds, aiCharIds) {
     units[id] = {
       charId,
       owner: 'ai',
-      row: 0,
-      col: 0,
+      row: -1,
+      col: -1,
       hp: c.hp,
       maxHp: c.hp,
       hasActed: false,
@@ -49,18 +50,18 @@ function buildInitialState(playerCharIds, aiCharIds) {
     aiUnitIds.push(id);
   });
 
+  // Place on board: AI rows 0-1, player rows 8-9
   let board = createEmptyBoard();
-  board = placeUnitsOnRow(board, aiUnitIds, 0);
-  board = placeUnitsOnRow(board, playerUnitIds, 5);
+  board = placeUnitsOnRows(board, aiUnitIds, 0, 1);
+  board = placeUnitsOnRows(board, playerUnitIds, 8, 9);
 
-  aiUnitIds.forEach((id) => {
-    const col = board[0].indexOf(id);
-    if (col !== -1) units[id].col = col;
-  });
-  playerUnitIds.forEach((id) => {
-    const col = board[5].indexOf(id);
-    if (col !== -1) units[id].col = col;
-  });
+  // Read all positions back from board (fixes the row-not-set bug)
+  const allIds = [...aiUnitIds, ...playerUnitIds];
+  const positions = readPositionsFromBoard(board, allIds);
+  for (const [id, pos] of Object.entries(positions)) {
+    units[id].row = pos.row;
+    units[id].col = pos.col;
+  }
 
   const firstTurn = Math.random() < 0.5 ? 'player' : 'ai';
 
@@ -83,6 +84,8 @@ function buildInitialState(playerCharIds, aiCharIds) {
     message: firstTurn === 'player' ? '你的回合 — 点击棋子开始行动' : 'AI 正在思考...',
     gameOver: false,
     aiProcessingIndex: 0,
+    animatingUnit: null,
+    showActionChoice: false,
   };
 }
 
@@ -127,6 +130,7 @@ function gameReducer(state, action) {
       const unit = state.units[action.unitId];
       if (!unit || unit.owner !== 'player' || unit.hasActed || unit.hp <= 0) return state;
       if (state.phase !== 'player_turn') return state;
+      if (state.showActionChoice) return state; // Can't select during action choice
 
       const charData = getCharacter(unit.charId);
       const movableCells = getMovableCells(state.board, unit.row, unit.col, charData);
@@ -135,12 +139,16 @@ function gameReducer(state, action) {
     }
 
     case 'DESELECT_UNIT': {
+      if (state.showActionChoice) return state; // Can't deselect during action choice
       return { ...state, selectedUnitId: null, movableCells: [], attackTargets: [] };
     }
 
     case 'MOVE_UNIT': {
       const { unitId, toRow, toCol } = action;
       const unit = state.units[unitId];
+      const fromRow = unit.row;
+      const fromCol = unit.col;
+
       const newBoard = state.board.map((r) => [...r]);
       newBoard[unit.row][unit.col] = null;
       newBoard[toRow][toCol] = unitId;
@@ -160,13 +168,75 @@ function gameReducer(state, action) {
         newUnits
       );
 
+      const showActionChoice = attackTargets.length > 0;
+
       return {
         ...state,
         board: newBoard,
         units: newUnits,
         movableCells: [],
-        attackTargets,
+        attackTargets: showActionChoice ? attackTargets : [],
+        showActionChoice,
+        animatingUnit: { unitId, fromRow, fromCol, toRow, toCol },
         actionLog: [...state.actionLog, `${charData.name} 移动到 (${toRow},${toCol})`],
+      };
+    }
+
+    case 'CLEAR_ANIMATION': {
+      return { ...state, animatingUnit: null };
+    }
+
+    case 'CHOOSE_ATTACK': {
+      // Player chose to attack → enable target selection
+      return {
+        ...state,
+        showActionChoice: false,
+      };
+    }
+
+    case 'CHOOSE_REST': {
+      // Player chose to rest → end unit action
+      const unit = state.units[state.selectedUnitId];
+      if (!unit) return state;
+      const newUnits = {
+        ...state.units,
+        [state.selectedUnitId]: { ...unit, hasActed: true },
+      };
+
+      const allActed = state.playerUnitIds.every(
+        (id) => newUnits[id].hasActed || newUnits[id].hp <= 0
+      );
+
+      if (allActed) {
+        const gameOver = checkGameOver({ ...state, units: newUnits });
+        if (gameOver) return gameOver;
+
+        const resetUnits = {};
+        Object.keys(newUnits).forEach((id) => {
+          resetUnits[id] = { ...newUnits[id], hasActed: false };
+        });
+        return {
+          ...state,
+          units: resetUnits,
+          phase: 'ai_turn',
+          turn: 'ai',
+          message: 'AI 正在思考...',
+          aiProcessingIndex: 0,
+          showActionChoice: false,
+          selectedUnitId: null,
+          movableCells: [],
+          attackTargets: [],
+          actionLog: [...state.actionLog, '—— AI 回合 ——'],
+        };
+      }
+
+      return {
+        ...state,
+        units: newUnits,
+        showActionChoice: false,
+        selectedUnitId: null,
+        movableCells: [],
+        attackTargets: [],
       };
     }
 
@@ -182,6 +252,7 @@ function gameReducer(state, action) {
         diceRoundIndex: 0,
         attackTargets: [],
         selectedUnitId: null,
+        showActionChoice: false,
       };
     }
 
@@ -212,7 +283,6 @@ function gameReducer(state, action) {
         logMsg = `${attackerChar.name} ⚔️ ${defenderChar.name} → 未命中`;
       }
 
-      // Mark attacker as acted
       newUnits = {
         ...newUnits,
         [state.combatAttackerId]: { ...newUnits[state.combatAttackerId], hasActed: true },
@@ -229,7 +299,6 @@ function gameReducer(state, action) {
         actionLog: [...state.actionLog, logMsg],
       };
 
-      // Check if all player units have acted
       const allActed = newState.playerUnitIds.every(
         (id) => newUnits[id].hasActed || newUnits[id].hp <= 0
       );
@@ -238,7 +307,6 @@ function gameReducer(state, action) {
         const gameOver = checkGameOver({ ...newState, units: newUnits });
         if (gameOver) return gameOver;
 
-        // Start AI turn
         const resetUnits = {};
         Object.keys(newUnits).forEach((id) => {
           resetUnits[id] = { ...newUnits[id], hasActed: false };
@@ -295,6 +363,7 @@ function gameReducer(state, action) {
           selectedUnitId: null,
           movableCells: [],
           attackTargets: [],
+          showActionChoice: false,
         };
       }
 
@@ -312,6 +381,9 @@ function gameReducer(state, action) {
       const unit = state.units[unitId];
       if (!unit || unit.hp <= 0) return state;
 
+      const fromRow = unit.row;
+      const fromCol = unit.col;
+
       const newBoard = state.board.map((r) => [...r]);
       newBoard[unit.row][unit.col] = null;
       newBoard[toRow][toCol] = unitId;
@@ -326,6 +398,7 @@ function gameReducer(state, action) {
         ...state,
         board: newBoard,
         units: newUnits,
+        animatingUnit: { unitId, fromRow, fromCol, toRow, toCol },
         actionLog: [...state.actionLog, `AI ${charData.name} → (${toRow},${toCol})`],
       };
     }
@@ -366,14 +439,12 @@ function gameReducer(state, action) {
         logMsg = `AI ${attackerChar.name} ⚔️ ${defenderChar.name} → 未命中`;
       }
 
-      // Mark AI unit as acted
       newUnits = {
         ...newUnits,
         [state.combatAttackerId]: { ...newUnits[state.combatAttackerId], hasActed: true },
       };
 
       const nextIndex = state.aiProcessingIndex + 1;
-      const livingAi = state.aiUnitIds.filter((id) => newUnits[id].hp > 0);
 
       const newState = {
         ...state,
@@ -387,7 +458,6 @@ function gameReducer(state, action) {
         actionLog: [...state.actionLog, logMsg],
       };
 
-      // Check if all AI acted or current index exceeded
       const allActed = state.aiUnitIds.every(
         (id) => newUnits[id].hasActed || newUnits[id].hp <= 0
       );
@@ -478,6 +548,9 @@ export function useGame() {
     (unitId, toRow, toCol) => dispatch({ type: 'MOVE_UNIT', unitId, toRow, toCol }),
     []
   );
+  const clearAnimation = useCallback(() => dispatch({ type: 'CLEAR_ANIMATION' }), []);
+  const chooseAttack = useCallback(() => dispatch({ type: 'CHOOSE_ATTACK' }), []);
+  const chooseRest = useCallback(() => dispatch({ type: 'CHOOSE_REST' }), []);
   const initiateCombat = useCallback(
     (attackerId, defenderId) =>
       dispatch({ type: 'INITIATE_COMBAT', attackerId, defenderId }),
@@ -485,7 +558,7 @@ export function useGame() {
   );
   const nextDiceRound = useCallback(() => dispatch({ type: 'NEXT_DICE_ROUND' }), []);
   const resolveDicePlayer = useCallback(
-    (unitId) => dispatch({ type: 'RESOLVE_DICE_PLAYER', unitId }),
+    () => dispatch({ type: 'RESOLVE_DICE_PLAYER' }),
     []
   );
   const endPlayerUnit = useCallback(
@@ -510,6 +583,9 @@ export function useGame() {
     selectUnit,
     deselectUnit,
     moveUnit,
+    clearAnimation,
+    chooseAttack,
+    chooseRest,
     initiateCombat,
     nextDiceRound,
     resolveDicePlayer,

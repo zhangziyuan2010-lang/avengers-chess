@@ -24,7 +24,7 @@ export default function CharacterSelect({ onConfirm }) {
   return (
     <div className="select-page">
       <h1>选择你的战队</h1>
-      <p className="select-subtitle">选择 3 只狗狗出战（已选 {selected.length}/3）</p>
+      <p className="select-subtitle">选择 3 位英雄出战（已选 {selected.length}/3）</p>
 
       <div className="character-grid">
         {CHARACTERS.map((char) => {

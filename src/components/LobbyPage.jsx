@@ -3,7 +3,7 @@ export default function LobbyPage({ username, stats, onStartGame, onLogout }) {
     <div className="lobby-page">
       <div className="lobby-card">
         <div className="lobby-logo">🐾</div>
-        <h1>汪汪队大作战</h1>
+        <h1>复仇者联盟战棋</h1>
         <p className="lobby-welcome">
           欢迎，<strong>{username}</strong>！
         </p>

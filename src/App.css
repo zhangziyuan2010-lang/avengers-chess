@@ -368,8 +368,8 @@ body {
   flex-direction: column;
   min-height: 100vh;
   width: 100%;
-  max-width: 1200px;
-  padding: 12px;
+  max-width: 1300px;
+  padding: 8px;
 }
 
 .game-header {
@@ -531,11 +531,11 @@ body {
 
 .board-grid {
   display: grid;
-  grid-template-columns: repeat(6, 90px);
-  grid-template-rows: repeat(6, 90px);
-  gap: 3px;
+  grid-template-columns: repeat(10, 70px);
+  grid-template-rows: repeat(10, 70px);
+  gap: 2px;
   background: #5d8a4e;
-  padding: 8px;
+  padding: 6px;
   border-radius: 16px;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
   border: 4px solid #4a7038;
@@ -616,7 +616,7 @@ body {
 }
 
 .cell-unit-emoji {
-  font-size: 36px;
+  font-size: 28px;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
   transition: transform 0.2s;
 }
@@ -635,10 +635,10 @@ body {
 }
 
 .cell-unit-hp {
-  width: 50px;
-  height: 5px;
+  width: 42px;
+  height: 4px;
   background: #ddd;
-  border-radius: 3px;
+  border-radius: 2px;
   overflow: hidden;
 }
 
@@ -665,6 +665,93 @@ body {
 @keyframes crosshair-pulse {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.2); }
+}
+
+/* ── Movement Animation ──────────────────────────── */
+
+.ghost-cell {
+  background: #7aad63;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.cell-unit.ghost {
+  opacity: 0.4;
+  animation: ghost-fade-out 0.5s ease-out forwards;
+}
+
+@keyframes ghost-fade-out {
+  0% { opacity: 0.6; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.6); }
+}
+
+.cell-unit.pop-in {
+  animation: pop-in 0.5s ease-out;
+}
+
+@keyframes pop-in {
+  0% { transform: scale(0.3); opacity: 0; }
+  60% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.cell.animating-in {
+  background: #81c784;
+}
+
+/* ── Action Choice Panel ─────────────────────────── */
+
+.action-choice-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  backdrop-filter: blur(2px);
+}
+
+.action-choice-panel {
+  background: white;
+  border-radius: 20px;
+  padding: 32px 40px;
+  text-align: center;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25);
+  animation: pop-in 0.3s ease-out;
+}
+
+.action-choice-panel h3 {
+  font-size: 22px;
+  color: #333;
+  margin-bottom: 8px;
+}
+
+.action-choice-desc {
+  font-size: 14px;
+  color: #888;
+  margin-bottom: 24px;
+}
+
+.action-choice-buttons {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+}
+
+.btn-attack {
+  background: linear-gradient(135deg, #e53935, #ff6b35);
+  box-shadow: 0 4px 15px rgba(229, 57, 53, 0.4);
+  padding: 14px 36px;
+  font-size: 18px;
+}
+
+.btn-rest {
+  padding: 14px 36px;
+  font-size: 18px;
 }
 
 /* ── Game Bottom ────────────────────────────────── */
@@ -910,14 +997,14 @@ body {
   }
 
   .board-grid {
-    grid-template-columns: repeat(6, 60px);
-    grid-template-rows: repeat(6, 60px);
-    gap: 2px;
-    padding: 6px;
+    grid-template-columns: repeat(10, 50px);
+    grid-template-rows: repeat(10, 50px);
+    gap: 1px;
+    padding: 4px;
   }
 
   .cell-unit-emoji {
-    font-size: 24px;
+    font-size: 22px;
   }
 
   .character-grid {
@@ -927,8 +1014,8 @@ body {
 
 @media (max-width: 480px) {
   .board-grid {
-    grid-template-columns: repeat(6, 48px);
-    grid-template-rows: repeat(6, 48px);
+    grid-template-columns: repeat(10, 38px);
+    grid-template-rows: repeat(10, 38px);
   }
 
   .character-grid {

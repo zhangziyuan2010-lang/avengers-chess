@@ -33,8 +33,8 @@ export default function LoginPage({ onLogin, onRegister }) {
     <div className="login-page">
       <div className="login-card">
         <div className="login-logo">🐾</div>
-        <h1>汪汪队大作战</h1>
-        <p className="login-subtitle">Paw Patrol Battle</p>
+        <h1>复仇者联盟战棋</h1>
+        <p className="login-subtitle">Avengers Tactics</p>
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
