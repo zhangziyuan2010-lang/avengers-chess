@@ -10,9 +10,10 @@ export const CHARACTERS = [
     range: 1,
     emoji: '🦾',
     fly: true,
-    desc: '飞行推进：可穿越任何单位，移动力 4',
+    desc: '装甲飞行，速度与力量兼备',
     skillName: '飞行推进',
-    skillDesc: '可穿越任何单位，移动力 4',
+    skillShort: '可穿越任何单位，移动力 4',
+    skillFull: '钢铁侠利用战甲推进器在空中飞行，无视敌方阻挡，可自由穿越任何单位。基础移动力高达 4 格，是全队最快的突击手。',
   },
   {
     id: 'thor',
@@ -25,7 +26,8 @@ export const CHARACTERS = [
     range: 1,
     emoji: '⚡',
     skillName: '雷霆之怒',
-    skillDesc: '攻击时骰子点数 +1（更容易命中）',
+    skillShort: '攻击时骰子点数 +1',
+    skillFull: '雷神之锤姆乔尔尼尔释放雷霆之力，攻击时掷骰结果 +1。这意味着雷神比其他角色更容易命中敌人，配合高攻击力可造成毁灭性打击。',
   },
   {
     id: 'hulk',
@@ -38,7 +40,8 @@ export const CHARACTERS = [
     range: 1,
     emoji: '💢',
     skillName: '狂暴',
-    skillDesc: '血量低于 50% 时攻击力 +1',
+    skillShort: 'HP < 50% 时攻击力 +1',
+    skillFull: '班纳博士越愤怒越强大！当绿巨人血量降至 50% 以下时触发狂暴，攻击力从 5 提升至 6。血量极厚（16点），是全队最强前排坦克。',
   },
   {
     id: 'captain',
@@ -51,7 +54,8 @@ export const CHARACTERS = [
     range: 1,
     emoji: '🛡️',
     skillName: '振金盾牌',
-    skillDesc: '被攻击时防御骰子 +1（更难被命中）',
+    skillShort: '被攻击时防御骰子 +1',
+    skillFull: '史蒂夫·罗杰斯的振金盾牌坚不可摧。被攻击时防御掷骰结果 +1，比普通角色更难被击中。配合 13 点高血量，是队伍中最可靠的防线。',
   },
   {
     id: 'hawkeye',
@@ -65,7 +69,8 @@ export const CHARACTERS = [
     emoji: '🏹',
     fly: true,
     skillName: '神射 + 敏捷',
-    skillDesc: '2 格远程攻击，可穿越任何单位',
+    skillShort: '2 格远程攻击，可穿越任何单位',
+    skillFull: '克林特·巴顿的弓箭可攻击 2 格范围内的敌人，无需贴身即可输出。身手敏捷可穿越任何单位，但血量仅 7 点，需要注意走位保护。',
   },
   {
     id: 'widow',
@@ -78,7 +83,8 @@ export const CHARACTERS = [
     range: 1,
     emoji: '🕷️',
     skillName: '电击手环',
-    skillDesc: '命中后，目标下回合移动力 -1',
+    skillShort: '命中后目标下回合移动力 -1',
+    skillFull: '娜塔莎的瓦坎达电击手环可在命中后释放电流脉冲，使目标下回合移动力 -1。配合 3 格移动力，可快速突袭敌方核心单位并限制其行动。',
   },
 ];
 

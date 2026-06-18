@@ -1,4 +1,5 @@
 import { getCharacter } from '../data/characters';
+import Tooltip from './Tooltip';
 
 const TERRAIN_ICONS = {
   highland: '⛰️',
@@ -46,9 +47,8 @@ export default function Cell({
     );
   }
 
-  return (
+  const cellContent = (
     <div className={cellClass} onClick={() => onClick(row, col)} title={terrainType ? TERRAIN_LABELS[terrainType] : ''}>
-      {/* Terrain icon in corner */}
       {terrainType && <span className="terrain-icon">{TERRAIN_ICONS[terrainType]}</span>}
 
       {unit && !isDead && (
@@ -79,4 +79,11 @@ export default function Cell({
       {isAttackTarget && <div className="attack-crosshair">🎯</div>}
     </div>
   );
+
+  // Wrap with tooltip if there's a living unit here
+  if (unit && !isDead) {
+    return <Tooltip unit={unit}>{cellContent}</Tooltip>;
+  }
+
+  return cellContent;
 }

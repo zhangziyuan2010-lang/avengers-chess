@@ -1,6 +1,7 @@
 import { useState, useCallback, useReducer, useEffect } from 'react';
 import LoginPage from './components/LoginPage';
 import LobbyPage from './components/LobbyPage';
+import RulesPage from './components/RulesPage';
 import CharacterSelect from './components/CharacterSelect';
 import GameBoard from './components/GameBoard';
 import GameOverPage from './components/GameOverPage';
@@ -33,7 +34,9 @@ export default function App() {
     setPage('login');
   }, [auth]);
 
-  const handleStartGame = useCallback(() => setPage('select'), []);
+  const handleStartGame = useCallback(() => setPage('rules'), []);
+
+  const handleRulesContinue = useCallback(() => setPage('select'), []);
 
   const handleCharacterConfirm = useCallback(
     (playerChars, aiChars) => {
@@ -43,7 +46,6 @@ export default function App() {
     [game]
   );
 
-  // Detect game over
   useEffect(() => {
     if (page === 'game' && game.state?.gameOver) {
       auth.recordGame(auth.currentUser, game.state.winner === 'player');
@@ -57,7 +59,7 @@ export default function App() {
     setPage('lobby');
   }, [forceUpdate]);
 
-  const handlePlayAgain = useCallback(() => setPage('select'), []);
+  const handlePlayAgain = useCallback(() => setPage('rules'), []);
 
   const stats = auth.getStats(auth.currentUser);
 
@@ -74,6 +76,10 @@ export default function App() {
           onStartGame={handleStartGame}
           onLogout={handleLogout}
         />
+      )}
+
+      {page === 'rules' && (
+        <RulesPage onContinue={handleRulesContinue} />
       )}
 
       {page === 'select' && (

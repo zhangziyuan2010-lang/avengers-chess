@@ -49,8 +49,9 @@ export default function CharacterSelect({ onConfirm }) {
                 {char.skillName && (
                   <span className="char-skill-tag">⭐ {char.skillName}</span>
                 )}
-                {char.skillName && <br />}
-                {char.desc}
+              </div>
+              <div className="char-skill-full">
+                {char.skillFull || char.skillShort}
               </div>
               {isSelected && <div className="selected-badge">✓</div>}
             </div>

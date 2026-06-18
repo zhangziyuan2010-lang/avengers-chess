@@ -308,8 +308,16 @@ body {
 }
 
 .char-emoji {
-  font-size: 48px;
-  margin-bottom: 8px;
+  font-size: 42px;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--char-color) 50%, #fff), var(--char-color));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 10px;
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--char-color) 35%, transparent);
 }
 
 .char-name {
@@ -359,6 +367,205 @@ body {
   font-weight: bold;
   font-size: 18px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* ── Rules Page ─────────────────────────────────── */
+
+.rules-page {
+  padding: 30px 20px 40px;
+  max-width: 800px;
+  width: 100%;
+}
+
+.rules-card {
+  background: white;
+  border-radius: 24px;
+  padding: 40px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+.rules-card h1 {
+  font-size: 28px;
+  color: #333;
+  margin-bottom: 24px;
+}
+
+.rules-section {
+  text-align: left;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.rules-section h2 {
+  font-size: 16px;
+  color: #ff6b35;
+  margin-bottom: 8px;
+}
+
+.rules-section p,
+.rules-section li {
+  font-size: 14px;
+  color: #555;
+  line-height: 1.7;
+}
+
+.rules-section ul,
+.rules-section ol {
+  padding-left: 20px;
+}
+
+.rules-section li {
+  margin-bottom: 4px;
+}
+
+.rules-skills-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.rules-skill-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--char-color) 8%, #f8f9fa);
+}
+
+.rules-skill-emoji {
+  font-size: 28px;
+  flex-shrink: 0;
+}
+
+.rules-skill-info strong {
+  font-size: 13px;
+}
+
+.rules-skill-info p {
+  font-size: 12px;
+  color: #888;
+  margin-top: 2px;
+}
+
+.rules-credit {
+  color: #aaa;
+  font-size: 13px;
+  margin: 20px 0;
+  font-style: italic;
+}
+
+/* ── Tooltip ────────────────────────────────────── */
+
+.tooltip-wrapper {
+  position: relative;
+}
+
+.tooltip-popup {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: white;
+  border-radius: 14px;
+  padding: 14px 16px;
+  min-width: 200px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+  z-index: 200;
+  pointer-events: none;
+}
+
+.tooltip-wrapper:hover .tooltip-popup {
+  display: block;
+}
+
+.tooltip-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.tooltip-emoji {
+  font-size: 28px;
+}
+
+.tooltip-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #333;
+}
+
+.tooltip-en {
+  font-size: 11px;
+  color: #999;
+}
+
+.tooltip-hp-bar {
+  height: 6px;
+  background: #eee;
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.tooltip-hp-fill {
+  height: 100%;
+  border-radius: 3px;
+}
+
+.tooltip-hp-text {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.tooltip-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-bottom: 8px;
+}
+
+.tooltip-stat {
+  font-size: 12px;
+  color: #555;
+}
+
+.tooltip-stat strong {
+  color: #333;
+}
+
+.tooltip-skill {
+  background: #fef9e7;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.tooltip-skill-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: #e67e22;
+  margin-bottom: 2px;
+}
+
+.tooltip-skill-desc {
+  font-size: 11px;
+  color: #888;
+  line-height: 1.4;
+}
+
+/* ── Character skill full on select ─────────────── */
+
+.char-skill-full {
+  font-size: 11px;
+  color: #777;
+  line-height: 1.5;
+  margin-top: 6px;
+  padding: 0 4px;
 }
 
 /* ── Game Page ──────────────────────────────────── */
@@ -468,8 +675,16 @@ body {
 }
 
 .unit-emoji {
-  font-size: 32px;
-  margin-bottom: 4px;
+  font-size: 34px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--char-color) 60%, #fff), var(--char-color));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 6px;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--char-color) 40%, transparent);
 }
 
 .unit-name {
@@ -716,9 +931,17 @@ body {
 }
 
 .cell-unit-emoji {
-  font-size: 28px;
+  font-size: 24px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--char-color) 50%, #fff), var(--char-color));
+  display: flex;
+  align-items: center;
+  justify-content: center;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
   transition: transform 0.2s;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--char-color) 40%, transparent);
 }
 
 .cell-unit.player .cell-unit-emoji {
