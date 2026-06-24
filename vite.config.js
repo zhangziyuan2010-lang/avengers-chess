@@ -3,6 +3,6 @@ import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: '/zhang-ziyuans-small-warehouse/',
+  base: '/avengers-chess/',
   plugins: [react()],
 })
